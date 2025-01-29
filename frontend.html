@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOAP Medical Clinic System</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="text-center">SOAP Medical Record</h2>
+        <form action="submit_soap.php" method="POST">
+            
+            <div class="mb-3">
+                <label for="patientName" class="form-label">Patient Name</label>
+                <input type="text" class="form-control" id="patientName" name="patient_name" required>
+            </div>
+            
+            <div class="mb-3">
+                <label for="subjective" class="form-label">Subjective (Patient's Symptoms & History)</label>
+                <textarea class="form-control" id="subjective" name="subjective" rows="3" required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="objective" class="form-label">Objective (Exam & Test Results)</label>
+                <textarea class="form-control" id="objective" name="objective" rows="3" required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="assessment" class="form-label">Assessment (Diagnosis)</label>
+                <textarea class="form-control" id="assessment" name="assessment" rows="3" required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="plan" class="form-label">Plan (Treatment & Follow-ups)</label>
+                <textarea class="form-control" id="plan" name="plan" rows="3" required></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Submit Record</button>
+        </form>
+    </div>
+</body>
+</html>
