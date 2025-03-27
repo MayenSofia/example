@@ -4,9 +4,12 @@ namespace App\Http\Controllers\api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Cart;
+use App\Models\OrderItem; // ✅ Import Product model
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;  
 use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
@@ -29,44 +32,76 @@ class OrderController extends Controller
     // Checkout (Create an order)
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $user = $request->user();
+
+        // Validate request
+        $validated = $request->validate([
             'items' => 'required|array',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
-        if ($validator->fails()) return response()->json($validator->errors(), 400);
-
-        $totalPrice = 0;
-        $orderItems = [];
-
-        foreach ($request->items as $item) {
-            $product = Product::find($item['product_id']);
-
-            if ($product->stock < $item['quantity']) {
-                return response()->json(['error' => "Not enough stock for product: {$product->name}"], 400);
-            }
-
-            $product->decrement('stock', $item['quantity']);
-            $totalPrice += $product->price * $item['quantity'];
-
-            $orderItems[] = [
-                'product_id' => $product->id,
-                'quantity' => $item['quantity'],
-                'price' => $product->price,
-            ];
-        }
-
-        $order = Order::create([
-            'user_id' => $request->user()->id,
-            'total_price' => $totalPrice,
-            'status' => 'pending',
+        // ✅ Ensure user has an 'orders()' relationship in User model
+        $order = $user->orders()->create([
+            'total_price' => collect($validated['items'])->sum(function ($item) {
+                return Product::find($item['product_id'])->price * $item['quantity'];
+            }),
+            'status' => 'pending'
         ]);
 
-        foreach ($orderItems as $item) {
-            $order->orderItems()->create($item);
+        // ✅ Attach products to order
+        foreach ($validated['items'] as $item) {
+            $order->orderItems()->create([
+                'product_id' => $item['product_id'],
+                'quantity' => $item['quantity']
+            ]);
         }
 
-        return response()->json($order->load('orderItems.product'), 201);
+        // ✅ Clear user's cart (ensure the cart relationship exists)
+        if (method_exists($user, 'cart')) {
+            $user->cart()->delete();
+        }
+
+        return response()->json(['message' => 'Order placed successfully', 'order' => $order], 201);
     }
+
+    public function checkout()
+    {
+        $user = Auth::user();
+        $cartItems = Cart::where('user_id', $user->id)->get();
+
+        if ($cartItems->isEmpty()) {
+            return response()->json(['error' => 'Cart is empty'], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Create Order
+            $order = Order::create([
+                'user_id' => $user->id,
+                'status' => 'pending',
+                'total_price' => $cartItems->sum(fn($item) => $item->product->price * $item->quantity)
+            ]);
+
+            // Transfer Cart Items to Order Items
+            foreach ($cartItems as $cartItem) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $cartItem->product_id,
+                    'quantity' => $cartItem->quantity,
+                    'price' => $cartItem->product->price
+                ]);
+            }
+
+            // Clear the Cart
+            Cart::where('user_id', $user->id)->delete();
+
+            DB::commit();
+            return response()->json(['message' => 'Order placed successfully!', 'order' => $order], 201);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json(['error' => 'Failed to process order'], 500);
+        }
+    }
+
 }

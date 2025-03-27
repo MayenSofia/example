@@ -38,7 +38,7 @@ class ProductController extends Controller
             'price' => 'required|numeric|min:0',
             'stock' => 'required|integer|min:0',
             'image' => 'nullable|string',
-        ]);
+        ]); 
 
         if ($validator->fails()) return response()->json($validator->errors(), 400);
 
@@ -65,18 +65,18 @@ class ProductController extends Controller
     // Delete a product (EMPLOYEE ONLY, Prevent if ordered)
     public function destroy($id)
     {
-        if (Auth::user()->role !== 'employee') {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Unauthorized'], 401);
         }
+
 
         $product = Product::find($id);
-        if (!$product) return response()->json(['error' => 'Product not found'], 404);
-
-        if ($product->orderItems()->exists()) {
-            return response()->json(['error' => 'Product cannot be deleted as it is in an order'], 400);
+        if (!$product) {
+            return response()->json(['message' => 'Product not found'], 404);
         }
 
+
         $product->delete();
-        return response()->json(['message' => 'Product deleted']);
+        return response()->json(['message' => 'Product deleted successfully'], 200);
     }
 }
